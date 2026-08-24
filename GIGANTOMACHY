@@ -1,0 +1,39 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int t;
+    cin >> t;
+
+    while (t--) {
+        int n, m;
+        cin >> n >> m;
+
+        long long firstA, firstB, x;
+
+        // Read Bea's mountains
+        cin >> firstA;
+        for (int i = 1; i < n; i++) {
+            cin >> x;
+        }
+
+        // Read Ver's mountains
+        cin >> firstB;
+        for (int i = 1; i < m; i++) {
+            cin >> x;
+        }
+
+        long long bea = firstA + n - 1;
+        long long ver = firstB + m - 1;
+
+        if (bea >= ver)
+            cout << 1 << '\n';
+        else
+            cout << 2 << '\n';
+    }
+
+    return 0;
+}
