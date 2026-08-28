@@ -1,0 +1,354 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+using ll = long long;
+
+const int MOD = 998244353;
+const int G = 3;
+
+// ------------------------------------------------------------
+// Modular exponentiation
+// ------------------------------------------------------------
+ll modpow(ll a, ll e) {
+    ll res = 1;
+
+    while (e) {
+        if (e & 1)
+            res = res * a % MOD;
+
+        a = a * a % MOD;
+        e >>= 1;
+    }
+
+    return res;
+}
+
+// ------------------------------------------------------------
+// NTT
+// ------------------------------------------------------------
+void ntt(vector<int>& a, bool invert) {
+
+    int n = (int)a.size();
+
+    // Bit reversal
+    for (int i = 1, j = 0; i < n; i++) {
+
+        int bit = n >> 1;
+
+        for (; j & bit; bit >>= 1)
+            j ^= bit;
+
+        j ^= bit;
+
+        if (i < j)
+            swap(a[i], a[j]);
+    }
+
+    for (int len = 2; len <= n; len <<= 1) {
+
+        ll wlen = modpow(G, (MOD - 1) / len);
+
+        if (invert)
+            wlen = modpow(wlen, MOD - 2);
+
+        for (int i = 0; i < n; i += len) {
+
+            ll w = 1;
+
+            for (int j = 0; j < len / 2; j++) {
+
+                int u = a[i + j];
+
+                int v = (int)(a[i + j + len / 2] * w % MOD);
+
+                a[i + j] = u + v;
+
+                if (a[i + j] >= MOD)
+                    a[i + j] -= MOD;
+
+                a[i + j + len / 2] = u - v;
+
+                if (a[i + j + len / 2] < 0)
+                    a[i + j + len / 2] += MOD;
+
+                w = w * wlen % MOD;
+            }
+        }
+    }
+
+    if (invert) {
+
+        ll inv_n = modpow(n, MOD - 2);
+
+        for (int& x : a)
+            x = (int)(x * inv_n % MOD);
+    }
+}
+
+// ------------------------------------------------------------
+// Polynomial multiplication
+// ------------------------------------------------------------
+vector<int> multiply(vector<int> a, vector<int> b) {
+
+    if (a.empty() || b.empty())
+        return {};
+
+    // Small case: naive multiplication is faster
+    if (min(a.size(), b.size()) <= 32) {
+
+        vector<int> c(a.size() + b.size() - 1, 0);
+
+        for (int i = 0; i < (int)a.size(); i++) {
+
+            for (int j = 0; j < (int)b.size(); j++) {
+
+                c[i + j] =
+                    (c[i + j] + (ll)a[i] * b[j]) % MOD;
+            }
+        }
+
+        return c;
+    }
+
+    int need = a.size() + b.size() - 1;
+
+    int n = 1;
+
+    while (n < need)
+        n <<= 1;
+
+    a.resize(n);
+    b.resize(n);
+
+    ntt(a, false);
+    ntt(b, false);
+
+    for (int i = 0; i < n; i++)
+        a[i] = (ll)a[i] * b[i] % MOD;
+
+    ntt(a, true);
+
+    a.resize(need);
+
+    return a;
+}
+
+// ------------------------------------------------------------
+// Build product:
+//
+// (1 + a1*x)(1 + a2*x)...(1 + an*x)
+//
+// using divide and conquer.
+// ------------------------------------------------------------
+vector<int> buildPolynomial(
+    const vector<int>& a,
+    int l,
+    int r
+) {
+
+    if (l == r) {
+        return {1, a[l]};
+    }
+
+    int mid = (l + r) / 2;
+
+    vector<int> left =
+        buildPolynomial(a, l, mid);
+
+    vector<int> right =
+        buildPolynomial(a, mid + 1, r);
+
+    return multiply(left, right);
+}
+
+// ------------------------------------------------------------
+// Main
+// ------------------------------------------------------------
+int main() {
+
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int T;
+    cin >> T;
+
+    const int MAXN = 400005;
+
+    // Modular inverses.
+    vector<ll> inv(MAXN);
+
+    inv[1] = 1;
+
+    for (int i = 2; i < MAXN; i++) {
+        inv[i] =
+            MOD -
+            (MOD / i) * inv[MOD % i] % MOD;
+    }
+
+    // Factorials
+    vector<ll> fact(MAXN);
+
+    fact[0] = 1;
+
+    for (int i = 1; i < MAXN; i++)
+        fact[i] = fact[i - 1] * i % MOD;
+
+    while (T--) {
+
+        int n;
+        cin >> n;
+
+        vector<int> a(n);
+
+        for (int& x : a)
+            cin >> x;
+
+        // ----------------------------------------------------
+        // Step 1: elementary symmetric polynomials e[0..n]
+        // ----------------------------------------------------
+
+        vector<int> e =
+            buildPolynomial(a, 0, n - 1);
+
+        // ----------------------------------------------------
+        // Step 2: calculate c[k]
+        // ----------------------------------------------------
+
+        int m = n / 2;
+
+        vector<ll> c(m + 1);
+
+        // c0 = 2 * (n-1)!
+        c[0] = 2LL * fact[n - 1] % MOD;
+
+        /*
+            c[k+1] / c[k]
+              = (k+1) / (2(2k+1))
+        */
+
+        for (int k = 0; k < m; k++) {
+
+            ll numerator = k + 1;
+
+            ll denominator =
+                2LL * (2 * k + 1);
+
+            c[k + 1] =
+                c[k]
+                * numerator % MOD
+                * inv[denominator] % MOD;
+        }
+
+        // ----------------------------------------------------
+        // Step 3: calculate h
+        // ----------------------------------------------------
+
+        vector<ll> h(m + 1, 0);
+
+        // Highest value
+        h[m] = c[m];
+
+        if (m >= 1) {
+
+            h[m - 1] =
+                (c[m - 1]
+                - (ll)(n - 2 * m + 2) * h[m])
+                % MOD;
+
+            if (h[m - 1] < 0)
+                h[m - 1] += MOD;
+        }
+
+        if (n % 2 == 0) {
+
+            /*
+                Even n.
+
+                Need one more boundary value:
+                
+                h[m-2]
+                    = c[m-2]
+                    - 4*h[m-1]
+                    - 6*h[m]
+            */
+
+            if (m >= 2) {
+
+                h[m - 2] =
+                    c[m - 2]
+                    - 4LL * h[m - 1]
+                    - 6LL * h[m];
+
+                h[m - 2] %= MOD;
+
+                if (h[m - 2] < 0)
+                    h[m - 2] += MOD;
+            }
+
+            /*
+                Start recurrence from m-3
+            */
+            for (int r = m - 3; r >= 0; r--) {
+
+                ll value =
+                    (ll)(n - 2) * h[r + 1]
+                    - (ll)(n - r - 1) * h[r + 2];
+
+                value %= MOD;
+
+                if (value < 0)
+                    value += MOD;
+
+                h[r] =
+                    value * inv[r + 1] % MOD;
+            }
+
+        } else {
+
+            /*
+                Odd n.
+
+                Start recurrence from m-2.
+            */
+
+            for (int r = m - 2; r >= 0; r--) {
+
+                ll value =
+                    (ll)(n - 2) * h[r + 1]
+                    - (ll)(n - r - 1) * h[r + 2];
+
+                value %= MOD;
+
+                if (value < 0)
+                    value += MOD;
+
+                h[r] =
+                    value * inv[r + 1] % MOD;
+            }
+        }
+
+        // ----------------------------------------------------
+        // Step 4: answer
+        //
+        // answer =
+        // sum h[r] * e[r] * e[n-r]
+        // ----------------------------------------------------
+
+        ll ans = 0;
+
+        for (int r = 0; r <= m; r++) {
+
+            ans +=
+                h[r]
+                * e[r] % MOD
+                * e[n - r] % MOD;
+
+            if (ans >= MOD)
+                ans -= MOD;
+        }
+
+        cout << ans << '\n';
+    }
+
+    return 0;
+}
