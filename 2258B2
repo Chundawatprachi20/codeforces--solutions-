@@ -1,0 +1,97 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+using ll = long long;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int T;
+    cin >> T;
+
+    while (T--) {
+        int n, m;
+        cin >> n >> m;
+
+        vector<int> freq(m + 1, 0);
+        ll totalSum = 0;
+
+        for (int i = 0; i < n; i++) {
+            int a;
+            cin >> a;
+            freq[a]++;
+            totalSum += a;
+        }
+
+        // Prefix sum of frequencies
+        vector<int> pref(m + 1, 0);
+
+        for (int i = 1; i <= m; i++) {
+            pref[i] = pref[i - 1] + freq[i];
+        }
+
+        // Number of carrots with length in [l, r]
+        auto countRange = [&](int l, int r) -> int {
+            l = max(l, 1);
+            r = min(r, m);
+
+            if (l > r) return 0;
+
+            return pref[r] - pref[l - 1];
+        };
+
+        vector<ll> answer(m + 1);
+
+        ll p = 2; // 2^k
+
+        for (int k = 1; k <= m; k++) {
+
+            // If 2^k > m, we can eventually split everything into length 1.
+            if (p > m) {
+                answer[k] = totalSum;
+                continue;
+            }
+
+            ll best = 0;
+
+            // Optimal x <= m / p
+            for (int x = 1; x <= m / p; x++) {
+
+                ll current = 0;
+
+                // Contributions for floor(a/x) = q
+                for (int q = 1; q < p; q++) {
+
+                    int l = q * x;
+                    int r = (q + 1) * x - 1;
+
+                    current += 1LL * q * countRange(l, r);
+                }
+
+                int special = p * x;
+
+                // a = p*x contributes p
+                current += p * 1LL * freq[special];
+
+                // a > p*x contributes p-1
+                current += 1LL * (p - 1) *
+                           countRange(special + 1, m);
+
+                best = max(best, current);
+            }
+
+            answer[k] = best;
+
+            p *= 2;
+        }
+
+        for (int k = 1; k <= m; k++) {
+            cout << answer[k] << " ";
+        }
+
+        cout << "\n";
+    }
+
+    return 0;
+}
